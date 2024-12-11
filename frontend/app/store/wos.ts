@@ -11,7 +11,9 @@ import { atom, Atom, Getter, PrimitiveAtom, Setter, useAtomValue } from "jotai";
 import { useEffect } from "react";
 import { globalStore } from "./jotaiStore";
 import { ObjectService } from "./services";
+import type { Block, WaveObj } from "../types/wave";
 
+// Type definitions for wave objects
 type WaveObjectDataItemType<T extends WaveObj> = {
     value: T;
     loading: boolean;
@@ -24,6 +26,41 @@ type WaveObjectValue<T extends WaveObj> = {
     holdTime: number;
 };
 
+// Wave object cache
+const waveObjectValueCache = new Map<string, WaveObjectValue<any>>();
+const defaultHoldTime = 5000;
+
+// Wave Object Store class
+export class WOS {
+    static getWaveObjectsAtom<T extends WaveObj>(type: string): Atom<{ [key: string]: T }> {
+        return atom((get) => {
+            const objects: { [key: string]: T } = {};
+            for (const [key, value] of waveObjectValueCache.entries()) {
+                const [otype, _] = splitORef(key);
+                if (otype === type) {
+                    const data = get(value.dataAtom);
+                    if (data.value) {
+                        objects[key] = data.value;
+                    }
+                }
+            }
+            return objects;
+        });
+    }
+
+    static getWaveObjectAtom<T extends WaveObj>(oref: string): PrimitiveAtom<WaveObjectDataItemType<T>> {
+        const wov = getWaveObjectValue<T>(oref);
+        return wov.dataAtom;
+    }
+
+    static getAllBlocks(): Record<string, Block> {
+        const blockAtom = this.getWaveObjectsAtom<Block>('block');
+        const blocks = globalStore.get(blockAtom) as Record<string, Block>;
+        return blocks || {};
+    }
+}
+
+// Helper functions
 function splitORef(oref: string): [string, string] {
     const parts = oref.split(":");
     if (parts.length != 2) {
@@ -134,13 +171,9 @@ function callBackendService(service: string, method: string, args: any[], noUICo
     return prtn;
 }
 
-const waveObjectValueCache = new Map<string, WaveObjectValue<any>>();
-
 function clearWaveObjectCache() {
     waveObjectValueCache.clear();
 }
-
-const defaultHoldTime = 5000; // 5-seconds
 
 function reloadWaveObject<T extends WaveObj>(oref: string): Promise<T> {
     let wov = waveObjectValueCache.get(oref);
@@ -211,6 +244,22 @@ function getWaveObjectAtom<T extends WaveObj>(oref: string): WritableWaveObjectA
             setObjectValue(value, set, true);
         }
     );
+}
+
+function getWaveObjectsAtom<T extends WaveObj>(type: string): Atom<{ [key: string]: T }> {
+    return atom((get) => {
+        const objects: { [key: string]: T } = {};
+        for (const [key, value] of waveObjectValueCache.entries()) {
+            const [otype, _] = splitORef(key);
+            if (otype === type) {
+                const data = get(value.dataAtom);
+                if (data.value) {
+                    objects[key] = data.value;
+                }
+            }
+        }
+        return objects;
+    });
 }
 
 function getWaveObjectLoadingAtom(oref: string): Atom<boolean> {
