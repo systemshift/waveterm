@@ -3,6 +3,7 @@
 
 import { App } from "@/app/app";
 import {
+    globalRefocus,
     registerControlShiftStateUpdateHandler,
     registerElectronReinjectKeyHandler,
     registerGlobalKeys,
@@ -106,22 +107,31 @@ async function reinitWave() {
     getApi().setWindowInitStatus("wave-ready");
     globalStore.set(atoms.reinitVersion, globalStore.get(atoms.reinitVersion) + 1);
     globalStore.set(atoms.updaterStatusAtom, getApi().getUpdaterStatus());
+    setTimeout(() => {
+        globalRefocus();
+    }, 50);
 }
 
 function reloadAllWorkspaceTabs(ws: Workspace) {
-    if (ws == null || ws.tabids == null) {
+    if (ws == null || (!ws.tabids?.length && !ws.pinnedtabids?.length)) {
         return;
     }
-    ws.tabids.forEach((tabid) => {
+    ws.tabids?.forEach((tabid) => {
+        WOS.reloadWaveObject<Tab>(WOS.makeORef("tab", tabid));
+    });
+    ws.pinnedtabids?.forEach((tabid) => {
         WOS.reloadWaveObject<Tab>(WOS.makeORef("tab", tabid));
     });
 }
 
 function loadAllWorkspaceTabs(ws: Workspace) {
-    if (ws == null || ws.tabids == null) {
+    if (ws == null || (!ws.tabids?.length && !ws.pinnedtabids?.length)) {
         return;
     }
-    ws.tabids.forEach((tabid) => {
+    ws.tabids?.forEach((tabid) => {
+        WOS.getObjectValue<Tab>(WOS.makeORef("tab", tabid));
+    });
+    ws.pinnedtabids?.forEach((tabid) => {
         WOS.getObjectValue<Tab>(WOS.makeORef("tab", tabid));
     });
 }
